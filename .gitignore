@@ -102,3 +102,6 @@ dist
 
 # TernJS port file
 .tern-port
+.terraform/
+# Modules don't pin providers, the repos using them do.
+tofu/**/.terraform.lock.hcl
