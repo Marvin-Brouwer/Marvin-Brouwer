@@ -1,0 +1,85 @@
+# Reusable: approves a dependabot PR and queues it for auto-merge.
+#
+# Patch and minor bumps are always approved. Major bumps only when the caller
+# passes auto-approve-major: true; otherwise the PR is left alone for a human,
+# so nothing about it is queued.
+#
+# The merge itself waits on the ruleset's required checks, so only a green
+# pipeline lands.
+#
+# Both steps run as the personal token. A merge performed as GITHUB_TOKEN does
+# not trigger the push workflows on main, so nothing would deploy, and it cannot
+# land the github-actions bumps, since those touch .github/workflows.
+#
+# Caller:
+#
+#   on: pull_request
+#   jobs:
+#     dependabot:
+#       uses: Marvin-Brouwer/Marvin-Brouwer/.github/workflows/dependabot-auto-merge.yml@v1
+#       with:
+#         auto-approve-major: ${{ vars.DEPENDABOT_AUTO_APPROVE_MAJOR == 'true' }}
+#       secrets: inherit
+#
+# Dependabot-triggered runs only see Dependabot secrets, so
+# DEPENDABOT_APPROVE_TOKEN has to be a Dependabot secret in the calling repo.
+name: Dependabot auto-merge
+
+on:
+  workflow_call:
+    inputs:
+      auto-approve-major:
+        description: Also approve and merge semver-major bumps.
+        type: boolean
+        default: false
+      merge-method:
+        description: squash, merge or rebase.
+        type: string
+        default: squash
+    secrets:
+      DEPENDABOT_APPROVE_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  auto-merge:
+    name: Auto-approve and merge
+    runs-on: ubuntu-latest
+    # Keyed on the PR's author rather than github.actor, so it still runs when
+    # someone else pushes to the branch, e.g. through "Update branch".
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    env:
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      GH_TOKEN: ${{ secrets.DEPENDABOT_APPROVE_TOKEN }}
+    steps:
+      - name: Fetch dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide
+        id: decide
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          ALLOW_MAJOR: ${{ inputs.auto-approve-major }}
+        run: |
+          if [ "$UPDATE_TYPE" = "version-update:semver-major" ] && [ "$ALLOW_MAJOR" != "true" ]; then
+            echo "Major bump and auto-approve-major is off, leaving this one for a human."
+            echo "approve=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "approve=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-approve
+        if: steps.decide.outputs.approve == 'true'
+        run: gh pr review --approve "$PR_URL"
+
+      - name: Enable auto-merge
+        if: steps.decide.outputs.approve == 'true'
+        env:
+          MERGE_METHOD: ${{ inputs.merge-method }}
+        run: gh pr merge --auto "--$MERGE_METHOD" "$PR_URL"
