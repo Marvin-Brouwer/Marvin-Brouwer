@@ -1,0 +1,162 @@
+# Reusable: plans the repo's OpenTofu config on PRs and applies it on main.
+#
+# Always starts and skips its jobs when nothing under the working directory's
+# .tf files changed. A skipped job counts as passing, so "OpenTofu plan" can be
+# a required check without hanging PRs that don't touch infra. A path filter
+# on the caller's trigger would do exactly that, so don't add one.
+#
+# State lives in <working-directory>/terraform.tfstate on main. Apply commits
+# it back when it changed, as the automation App, which bypasses the ruleset.
+# That commit doesn't touch a .tf file, so the run it triggers skips.
+#
+# Caller:
+#
+#   on:
+#     pull_request:
+#     push:
+#       branches: ["main"]
+#   jobs:
+#     tofu:
+#       uses: Marvin-Brouwer/Marvin-Brouwer/.github/workflows/tofu.yml@v1
+#       with:
+#         app-id: ${{ vars.AUTOMATION_APP_ID }}
+#       secrets: inherit
+#
+# AUTOMATION_APP_PRIVATE_KEY has to be an Actions secret, and a Dependabot
+# secret too so dependabot's own PRs get a plan.
+name: OpenTofu
+
+on:
+  workflow_call:
+    inputs:
+      app-id:
+        description: ID of the automation GitHub App.
+        type: string
+        required: true
+      working-directory:
+        description: Directory holding the OpenTofu config and its state.
+        type: string
+        default: infra
+      tofu-version:
+        description: OpenTofu version, as setup-opentofu takes it.
+        type: string
+        default: "1.10.x"
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            infra:
+              - '${{ inputs.working-directory }}/**/*.tf'
+              - '${{ inputs.working-directory }}/.terraform.lock.hcl'
+
+  plan:
+    name: OpenTofu plan
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create app token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.tofu-version }}
+          tofu_wrapper: false
+
+      - run: tofu fmt -check -recursive
+      - run: tofu init -input=false
+      - run: tofu validate
+
+      - name: Plan
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -o pipefail
+          tofu plan -input=false -no-color -lock=false | tee plan.txt
+          {
+            echo '### OpenTofu plan'
+            echo
+            echo '```'
+            cat plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: OpenTofu apply
+    needs: changes
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch && needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    # Two applies reading the same state would overwrite each other.
+    concurrency:
+      group: tofu-apply
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Create app token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.tofu-version }}
+          tofu_wrapper: false
+
+      - run: tofu init -input=false
+
+      - name: Apply
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+        run: tofu apply -input=false -auto-approve
+
+      # Runs even when apply failed halfway: whatever it did create has to be
+      # in the state, or the next run tries to create it again.
+      - name: Commit state
+        if: always()
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          [ -f terraform.tfstate ] || exit 0
+          git add terraform.tfstate
+          if git diff --cached --quiet; then
+            echo "State unchanged."
+            exit 0
+          fi
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git commit -m "chore(infra): update OpenTofu state"
+          git push

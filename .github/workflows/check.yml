@@ -1,0 +1,35 @@
+# The one job this repo runs for itself: checks its own workflows and modules
+# before a tag hands them to every other repo.
+name: Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: raven-actions/actionlint@v2
+
+  tofu:
+    name: OpenTofu modules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_wrapper: false
+      - run: tofu fmt -check -recursive tofu
+      - name: Validate each module
+        run: |
+          for module in tofu/*/; do
+            echo "::group::$module"
+            tofu -chdir="$module" init -backend=false -input=false
+            tofu -chdir="$module" validate
+            echo "::endgroup::"
+          done
