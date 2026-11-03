@@ -6,6 +6,10 @@
 # still gets auto-merge queued, so it lands by itself once you approve it.
 # That relies on the ruleset requiring an approving review.
 #
+# OpenTofu/Terraform bumps (module refs and providers) are never approved,
+# whatever the flags say: merging one runs apply, which changes the repo's
+# settings, so you get to read the plan first.
+#
 # Runs as the automation GitHub App, not as GITHUB_TOKEN: a merge performed as
 # GITHUB_TOKEN does not trigger the push workflows on main, so nothing would
 # deploy, and it cannot land github-actions bumps, since those touch
@@ -89,7 +93,10 @@ jobs:
           ALLOW_ACTIONS_MAJOR: ${{ inputs.auto-approve-actions-major }}
         run: |
           approve=true
-          if [ "$UPDATE_TYPE" = "version-update:semver-major" ]; then
+          if [ "$ECOSYSTEM" = "terraform" ] || [ "$ECOSYSTEM" = "opentofu" ]; then
+            echo "$ECOSYSTEM bump, merging it runs apply, waiting for a human approval."
+            approve=false
+          elif [ "$UPDATE_TYPE" = "version-update:semver-major" ]; then
             if [ "$ECOSYSTEM" = "github_actions" ] || [ "$ECOSYSTEM" = "github-actions" ]; then
               allow="$ALLOW_ACTIONS_MAJOR"
             else
