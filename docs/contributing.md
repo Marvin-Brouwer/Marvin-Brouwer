@@ -1,35 +1,132 @@
+[//]: # (Links)
+
+[github-contribution-guide]: https://github.com/roots/guidelines/blob/master/CONTRIBUTING.md
+[github-flow]: http://scottchacon.com/2011/08/31/github-flow.html
+
+[//]: # (Header)
+
 # Contribution guide
 
-Thanks for taking the time. This is the default guide for my repositories. A repo with its own `CONTRIBUTING.md` overrides it, so check the repo first.
+_This guide is based on [GitHub's example contribution guide][github-contribution-guide]
+and [Scott Chacon's GitHub flow article][github-flow]._
 
-## Issues
+This is the default guide for my repositories. A repository with its own `CONTRIBUTING.md` overrides it, so check there first.
 
-Issues are the place for bug reports, feature requests and questions.
+<br/>
 
-- **Search first.** Someone may have reported it already.
-- **Bug reports:** say what you did, what you expected, and what happened instead. Check it still happens on the latest `main`. A minimal reproduction is worth more than a long description.
-- **Feature requests:** explain the problem you're trying to solve, not only the solution you have in mind. Not everything fits the project's scope, and that's fine.
-- **Security issues:** don't open a public issue. See the repo's security policy.
+[//]: # (Body)
 
-Keep discussions on topic and be decent to each other.
+Please take a moment to review this document in order to make the contribution process easy and effective for everyone involved.
 
-## Before you write code
+Following these guidelines helps to communicate that you respect the time of the developers managing and developing this open source project.
+In return, they should reciprocate that respect in addressing your issue or assessing patches and features.
 
-**Ask first** for anything bigger than a small fix. Open an issue or comment on an existing one. A PR for a change nobody asked for may not get merged, however good it is.
+## Using the issue tracker
 
-## Pull requests
+The issue tracker is the preferred channel for [bug reports](#bug-reports), [feature requests](#feature-requests) and [submitting pull requests](#open-a-pull-request-at-any-time), but please respect the following restrictions:
 
-1. Branch off `main`, or fork the repo if you can't push to it.
-2. Keep the PR to one change. Unrelated fixes go in their own PR.
-3. Follow the repo's existing style, and make sure its checks pass locally where you can.
-4. Fill in the PR template.
+* Please **do not** derail or troll issues.
+* Keep the discussion on topic and respect the opinions of others.
+* Please **do not** report security issues in public. Follow the repository's security policy instead.
 
-PRs are **squash merged**: the PR title becomes the commit subject on `main`, and the description becomes its body. Write both with that in mind. Your branch history doesn't need to be tidy, so there's no need to rebase or force push for its sake.
+## Bug reports
 
-`main` needs one approving review and green checks before anything merges. Branches have to be up to date with `main`. Use the "Update branch" button when GitHub asks.
+A bug is a _demonstrable problem_ that is caused by the code in the repository.
+Good bug reports are extremely helpful, thank you!
 
-Not ready yet? Open it as a draft. Ready and green? Turn on auto-merge, and it lands once it's approved.
+Guidelines for bug reports:
 
-## Licence
+1. **Use the GitHub issue search**
+   Check if the issue has already been reported.
+2. **Check if the issue has been fixed**
+   Try to reproduce it using the latest `main` branch in the repository.
+3. **Isolate the problem**
+   Make sure that the code in the repository is _definitely_ responsible for the issue.
 
-By contributing, you agree that your contribution is licensed under the repo's licence.
+A good bug report shouldn't leave others needing to chase you up for more information.
+Please try to be as detailed as possible in your report.
+
+## Feature requests
+
+Feature requests are welcome. But take a moment to find out whether your idea fits with the scope and aims of the project.
+It's up to *you* to make a strong case to convince the developers of the merits of this feature.
+Please provide as much detail and context as possible.
+
+**Please ask first** before embarking on any significant code change (e.g. implementing features, refactoring code), otherwise you risk spending a lot of time working on something that the developers might not want to merge into the project.
+
+## GitHub flow
+
+### Anything in the `main` branch is deployable
+
+Make sure your code is deploy ready.
+`main` is protected: a change only lands through a pull request with green checks and an approving review.
+
+### Create descriptive branches off of `main`
+
+<details>
+   <summary>(Optional) Fork</summary>
+   <br/>
+
+[Fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) the repo, clone your fork, and configure the remotes:
+
+```bash
+# Clone your fork of the repo into the current directory
+git clone https://github.com/<your-username>/<repo-name>
+# Navigate to the newly cloned directory
+cd <repo-name>
+# Assign the original repo to a remote called "upstream"
+git remote add upstream https://github.com/<upstream-owner>/<repo-name>
+```
+
+**If you cloned a while ago,** get the latest changes from upstream:
+
+```bash
+git checkout main
+git pull upstream main
+```
+
+</details>
+
+Create a new topic branch (off the `main` branch) to contain your feature, change, or fix:
+
+```bash
+git checkout -b <issue-number>-<friendly-description>
+```
+
+_It's probably easiest to use the title of the issue as the `<friendly-description>`._
+_**Or**, if you're not working from a fork, use "Create a branch" in the issue's sidebar._
+
+### Push to named branches constantly
+
+Commit your changes in logical chunks and make your change's intent clear in the message.
+Push often, so other contributors can see your progress.
+
+Pull requests are squash merged, so your branch history doesn't have to be tidy.
+There's no need to rebase or force push for its sake: merge `main` into your branch, or use the "Update branch" button on the pull request.
+
+### Open a pull request at any time
+
+Good pull requests (patches, improvements, new features) are a fantastic help.
+They should remain focused in scope and avoid containing unrelated commits.
+
+Your changes do not have to be ready to open a pull request.
+If you don't intend it to be merged yet, open it as a draft.
+
+[Open a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) with a clear title and description, and fill in the pull request template.
+The target branch should be `main` unless a maintainer tells you otherwise.
+
+**Mind the title and description.** The pull request is squash merged: its title becomes the commit message on `main` and its description becomes the commit body.
+Reference the issue it resolves.
+
+#### Final pull request
+
+When finalizing your change, please make sure:
+
+* It's marked ready for review, not a draft.
+* All checks are green and the branch is up to date with `main`.
+* Every item of the template's checklist is checked. Don't remove items, but feel free to add any that apply.
+* Auto-merge is on, so it lands as soon as it's approved.
+
+## License
+
+By contributing your code, you agree to license your contribution under the license of the repository.
